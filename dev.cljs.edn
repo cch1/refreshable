@@ -1,0 +1,2 @@
+{:main com.hapgood.refreshable
+ :target :nodejs}

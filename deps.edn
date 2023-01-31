@@ -1,0 +1,48 @@
+{:mvn/repos {"datomic-cloud" {:url "s3://datomic-releases-1fc2183a/maven/releases"}}
+ :paths ["src"]
+ :deps {org.clojure/clojure         {:mvn/version "1.10.3"}
+        org.clojure/clojurescript   {:mvn/version "1.11.4"}
+        org.clojure/core.async      {:mvn/version "1.5.648"}}
+ :aliases {;; clj -M:dev -r
+           :dev {:extra-paths ["dev-src"]
+                 :extra-deps {com.datomic/ion           {:mvn/version "1.0.58"} ; via "datomic-cloud" repo
+                              com.bhauman/figwheel-main {:mvn/version "0.2.16"
+                                                         :exclusions [org.clojure/clojurescript]}}}
+           :test {:extra-paths ["test" "test-resources"]}
+           :project/test-cljs {:main-opts ["-m" "cljs-test-runner.main"]
+                               :extra-deps {olical/cljs-test-runner {:mvn/version "3.8.0"}}
+                               :jvm-opts ["-DENVIRONMENT=test"]}
+           ;; clj -M:test:project/test-clj
+           :project/test-clj {:main-opts ["-m" "cognitect.test-runner"]
+                              :extra-deps {com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
+                                                                      :sha "cc75980b43011773162b485f46f939dc5fba91e4"}
+                                           ;; for e2e tests
+                                           etaoin/etaoin {:mvn/version "0.4.6"}}
+                              :jvm-opts ["-DENVIRONMENT=test"]}
+           ;; --------------------------- Build/Deploy Tasks ----------------------------
+           ;; Bump the version by a patch and generate a corresponding pom file with the groupId "com.hapgood"
+           ;; $ clojure -M:project/pom patch -t IncrementType
+           :project/pom {:main-opts ["-m" "garamond.main" "--group-id" "com.hapgood"
+                                     "--scm-url" "https://github.com/cch1/refreshable" "-p"]
+                         ;; because we don't need the project's dependencies loaded -graph parses the deps.edn "out-of-band":
+                         :replace-deps {com.workframe/garamond {:mvn/version "0.4.0"}}}
+           ;; Uberjar archive of the project, including Clojure runtime and resources
+           ;; clojure -X:project/uberjar :main-class domain.application
+           ;; clojure -X:project/uberjar :jar '"project-name.jar"' :main-class domain.application
+           :project/uberjar {:replace-deps {seancorfield/depstar {:mvn/version "2.0.216"}}
+                             :exec-fn      hf.depstar/uberjar
+                             :exec-args    {:jar "target/refreshable.jar"
+                                            :aot true
+                                            :main-class com.hapgood.refreshable}}
+
+           :lint/kondo {:extra-deps {clj-kondo/clj-kondo {:mvn/version "RELEASE"}}
+                        :main-opts  ["-m" "clj-kondo.main" "--lint" "src"]}
+
+           ;; Example Usage: clj -M:cljfmt <my-source-file>
+           :lint/cljfmt {:extra-deps {cljfmt/cljfmt {:mvn/version "RELEASE"}}
+                         :main-opts ["-m" "cljfmt.main" "check"]}
+
+           :project/nrepl {:main-opts ["-m" "nrepl.cmdline" "--middleware" "[\"cider.nrepl/cider-middleware\"]"]
+                           :extra-deps {nrepl/nrepl {:mvn/version "0.9.0"}
+                                        cider/cider-nrepl {:mvn/version "0.28.3"}}
+                           :jvm-opts ["-DENVIRONMENT=staging"]}}}

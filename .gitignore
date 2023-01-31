@@ -1,0 +1,9 @@
+/.cpcache
+/resources/version.edn
+/resources/public/js/*
+/.nrepl-port
+/.config.edn
+/.make.*
+/target
+/figwheel_server.log
+/cljs-test-runner-out

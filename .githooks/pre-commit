@@ -1,0 +1,17 @@
+#!/bin/sh
+#
+# A git hook script called by "git commit" with no arguments.
+#
+# The hook depends on the `cljfmt` alias in `deps.edn`.  The expected behavior
+# is to return a non-zero exit code if any staged files are not properly
+# formatted per cljfmt.  No files are changed.  The sed command strips out ANSI color
+# codes to better render in magit.
+FILE_PATTERN='\.(edn|clj(crsx)?)$'
+git diff --cached --name-only | grep -E $FILE_PATTERN | xargs clojure -M:lint/cljfmt 2>&1 | sed 's/\x1b\[[0-9;]*m//g'
+
+# An alternative hook that always succeeds and may re-write staged files to
+# conform to cljfmt.
+# Redirect output to stderr.
+# exec 1>&2
+# Reformat files
+# git diff --cached --name-only | xargs clojure -Sdeps '{:deps {cljfmt/cljfmt {:mvn/version "0.8.0"}}}' -M -m cljfmt.main fix --indents indentation.edn
