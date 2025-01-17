@@ -1,3 +1,4 @@
+/.clj-kondo
 /.cpcache
 /resources/version.edn
 /resources/public/js/*
