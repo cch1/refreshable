@@ -13,7 +13,6 @@
 
 (defn- validate!
   [validator v]
-  (println "validating...")
   (when-not (valid? validator v)
     (throw #?(:clj (IllegalStateException. "Invalid reference state")
               :cljs (new js/Error "Invalid reference state"))))
@@ -56,7 +55,6 @@
                      (if (= this port) val fallback)))
             clojure.lang.IRef
             (setValidator [this f]
-                          (println "setting validator...")
                           (when (async/poll! this)
                             (validate! f @this))
                           (set! validator f)
@@ -67,7 +65,8 @@
             (removeWatch [this k] (swap! watches dissoc k) this))
       :cljs (IDeref
              ; This interface is semantically inappropriate for ClojureScript, right?
-             ;   - Mostly, if we want to use set-validator! it uses -deref in ClojureScrip
+             ;   - Mostly, if we want to use `set-validator!` in ClojureScript its
+             ;     implementation uses `-deref`.
              (-deref [this]
                      (async/poll! this))
              IWatchable
@@ -102,9 +101,9 @@
   `error-handler`: a function that is called with the refreshable and the error map when the `acquire`
                    function throws an exception, closes the source channel, triggers the failsafe
                    timer (see `failsafe-timeout` below), or when validation of the acquired value
-                   fails.  The error handler should either return nil
-                   or false (to signal that the refreshable should shut down) or a positive integer
-                   number of milliseconds to backoff before retrying the acquire function.
+                   fails.  The error handler should either return nil or false (to signal that the
+                   refreshable should shut down) or a positive integer number of milliseconds to
+                   backoff before retrying the acquire function.
 
                    Note that the current backoff sequence head is available in the error map at the
                    `:retry` key except when the failsafe timer has been triggered. Simply returning
@@ -202,26 +201,3 @@
      Refreshable
      (-pr-writer [this writer opts]
        (-write writer (.toString this)))))
-
-(comment
-  (def r (create (constantly true) 1000))
-
-  (.m r)
-  (close! r)
-
-  (def r (->Refreshable (atom (async/promise-chan)) (async/chan 1) (atom {::version 0}) (atom {}) (fn [_] true)))
-
-  (.validator r)
-  (set-validator! r nil)
-  (get-validator r)
-
-  #?(:clj (async/<!! (async/go
-                       (async/thread
-                         (Thread/sleep 2000)
-                         (println "closing refreshable...")
-                         (close! r))
-                       (println "taking from refreshable...")
-                       (println "took from refreshable: " (async/<! r)))))
-
-  (even? 0)
-  #_x)
