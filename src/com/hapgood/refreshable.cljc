@@ -16,7 +16,8 @@
   (full? [b] false)
   (remove! [b] val)
   (add!* [b itm] (set! val itm))
-  (close-buf! [b] (set! val nil)) ; unlike a promise buffer, closing nullifies value
+  (close-buf! [b] (when (undelivered? val)
+                    (set! val nil))) ; unlike a promise buffer, closing nullifies value
   #?@(:clj (clojure.lang.Counted
             (count [_] (if (undelivered? val) 0 1)))
       :cljs (cljs.core/ICounted

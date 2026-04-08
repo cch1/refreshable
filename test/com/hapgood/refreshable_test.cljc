@@ -150,9 +150,7 @@
   (go-test (let [r (create (make-supplier 0) 0)]
              (async/<! r)
              (close! r)
-             (while (async/<! r) ; wait for close...
-               ;; Pure busy-wait crushes Clojurescript and the close never completes.  Chill for a bit...
-               (async/<! (async/timeout 100)))
+             (async/<! (async/timeout 100))
              (is (= {::uat/closed? true} (meta r))))))
 
 (deftest failsafe-option
