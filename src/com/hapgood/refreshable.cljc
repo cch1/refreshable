@@ -7,17 +7,32 @@
 
 (defn- delta-t [t0 t1] (- (inst-ms t1) (inst-ms t0)))
 
+(defonce ^:private NO-VAL #?(:clj (Object.) :cljs (js/Object.)))
+(defn- undelivered? [val] (identical? NO-VAL val))
+;; inspired by https://github.com/clojure/core.async/blob/811287474f5e354e40b8b33d77b960bb84f882e7/src/main/clojure/cljs/core/async/impl/buffers.cljs#L140
+(deftype LatchingBuffer [^:unsynchronized-mutable val]
+  impl/UnblockingBuffer
+  impl/Buffer
+  (full? [b] false)
+  (remove! [b] val)
+  (add!* [b itm] (set! val itm))
+  (close-buf! [b] (set! val nil)) ; unlike a promise buffer, closing nullifies value
+  #?@(:clj (clojure.lang.Counted
+            (count [_] (if (undelivered? val) 0 1)))
+      :cljs (cljs.core/ICounted
+             (-count [_] (if (undelivered? val) 0 1)))))
+
 ;; A channel-like type that coordinates the supply of fresh values.
 ;; TODO: https://blog.klipse.tech/clojurescript/2016/04/26/deftype-explained.html
-(deftype Refreshable [out-ref control m]
+(deftype Refreshable [out control m]
   impl/ReadPort
-  (take! [this fn-handler] (impl/take! @out-ref fn-handler))
+  (take! [this fn-handler] (impl/take! out fn-handler))
   impl/WritePort
   (put! [port val fn1-handler] (impl/put! control val fn1-handler))
   impl/Channel
   (close! [this] (impl/close! control))
   ;; There is a reason this is not a public fn in clojure.core.async: it doesn't track `close!` synchronously.
-  (closed? [this] (impl/closed? @out-ref))
+  (closed? [this] (impl/closed? out))
   #?@(:clj (clojure.lang.IMeta
             (meta [this] @m)
             clojure.lang.IObj
@@ -86,10 +101,10 @@
                             failsafe-timeout (* 1000 60)}
                        :as options}]
   {:pre [(fn? acquire) (int? interval) (seqable? backoffs) (fn? error-handler) (or (nil? failsafe-timeout) (pos-int? failsafe-timeout))]}
-  (let [out-ref (atom (async/promise-chan))
+  (let [out (async/chan (LatchingBuffer. NO-VAL))
         control (async/chan 1)
-        refreshable (->Refreshable out-ref control (atom {::version 0}))]
-    ;; coordinate the out-ref promise-channel from value arriving on the in channel
+        refreshable (->Refreshable out control (atom {::version 0}))]
+    ;; coordinate the out channel from value arriving on the in channel
     (async/go-loop [alarm (async/timeout 0) source nil failsafe nil called-at nil backoffs' backoffs]
       (let [[event port] (async/alts! (filter identity [control alarm source failsafe]))
             now (now)]
@@ -107,9 +122,7 @@
                                                                        (merge {::acquired-at now ::latency latency})
                                                                        (dissoc ::error)
                                                                        (update ::version inc)))
-                                           (let [[pc pc'] (reset-vals! out-ref (async/promise-chan))]
-                                             (async/offer! pc event) ; release any previously blocked takes
-                                             (async/offer! pc' event))
+                                           (async/put! out event)
                                            [(async/timeout refresh-after) nil nil nil backoffs])
                                          (when-let [backoff (error-handler refreshable {:error-type ::source-closed :retry (first backoffs')})]
                                            [(async/timeout backoff) nil nil nil (rest backoffs')]))
@@ -120,12 +133,11 @@
                                             [(async/timeout 0) source failsafe called-at backoffs']
                                             [alarm source failsafe called-at backoffs'])))]
           (recur a s f c bs)
-          (let [[pc pc'] (reset-vals! out-ref (async/promise-chan))] ; can't close a delivered pc, so create a new one to close immediately
+          (do
             (vary-meta refreshable #(-> %
                                         (dissoc ::acquired-at ::latency ::version)
                                         (assoc ::closed? true)))
-            (async/close! pc)
-            (async/close! pc')))))
+            (async/close! out)))))
     refreshable))
 
 (def close! async/close!)
