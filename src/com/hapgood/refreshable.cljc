@@ -143,7 +143,8 @@
             (async/close! out)))))
     refreshable))
 
-(def close! async/close!)
+(def close! impl/close!)
+(def closed? impl/closed?)
 
 #?(:clj
    (do (defmethod clojure.core/print-method Refreshable
