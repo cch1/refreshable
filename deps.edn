@@ -1,12 +1,10 @@
-{:mvn/repos {"datomic-cloud" {:url "s3://datomic-releases-1fc2183a/maven/releases"}}
- :paths ["src"]
+{:paths ["src"]
  :deps {org.clojure/clojure         {:mvn/version "1.10.3"}
         org.clojure/clojurescript   {:mvn/version "1.11.4"}
         org.clojure/core.async      {:mvn/version "1.5.648"}}
  :aliases {;; clj -M:dev -r
            :dev {:extra-paths ["dev-src"]
-                 :extra-deps {com.datomic/ion           {:mvn/version "1.0.58"} ; via "datomic-cloud" repo
-                              com.bhauman/figwheel-main {:mvn/version "0.2.16"
+                 :extra-deps {com.bhauman/figwheel-main {:mvn/version "0.2.16"
                                                          :exclusions [org.clojure/clojurescript]}}}
            :test {:extra-paths ["test" "test-resources"]}
            :project/test-cljs {:main-opts ["-m" "cljs-test-runner.main"]
