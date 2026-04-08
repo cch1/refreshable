@@ -43,13 +43,13 @@ Acquisition metrics and failure status are tracked in the metadata of the refres
 Refreshables are not values and are not suitable for serialization.
 
 ### Shutdown
-To free up the resources used by the refreshable, close it as you would close a core.async channel.
+To free up the resources used by the refreshable, close it as you would close a core.async channel.  Once closed, a refreshable
+will return the most recently acquired value forever.
 
 ### Troubleshooting
 The acquire function is automatically rescheduled if it synchronously throws an exception or asynchronously reports a failure.  If it neither throws an exception synchronously nor places a value on the refreshable channel a failsafe timer expires and an error handler can either request acquisition be retried or request the refreshable be closed.  Specify the failsafe timer (in milliseconds).
 
 ### TODO
 1. Consider making the metadata read-only.  Pros: metrics can't be overwritten.  Cons: reduced utility.
-2. Consider using mutable fields instead of atoms for internal state.
-3. Enhance printing to leverage metatdata.
-4. Support watches and validators.
+2. Enhance printing to leverage metatdata.
+3. Support watches and validators.
