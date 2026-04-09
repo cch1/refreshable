@@ -1,5 +1,5 @@
 (ns com.hapgood.refreshable-test
-  (:require [com.hapgood.refreshable :as uat :refer [create close!] :include-macros true]
+  (:require [com.hapgood.refreshable :as uat :refer [create close! closed?] :include-macros true]
             [clojure.core.async :as async]
             [clojure.core.async.impl.protocols :as impl]
             [clojure.test :refer [deftest is testing #?(:cljs async)]]
@@ -146,11 +146,18 @@
                (is (integer? (error :retry)))
                (is (= ::uat/source-closed (error :error-type)))))))
 
+(deftest last-value-return-after-closing
+  (go-test (let [r (create (make-supplier 0) 0)]
+             (is (nat-int? (async/<! r))) ; ensure we have acquired a value
+             (close! r)
+             (while (not (closed? r)) (async/<! (async/timeout 10)))
+             (is (nat-int? (async/<! r))))))
+
 (deftest metadata-reflects-closing
   (go-test (let [r (create (make-supplier 0) 0)]
              (async/<! r)
              (close! r)
-             (async/<! (async/timeout 100))
+             (while (not (closed? r)) (async/<! (async/timeout 10)))
              (is (= {::uat/closed? true} (meta r))))))
 
 (deftest failsafe-option

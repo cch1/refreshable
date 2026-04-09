@@ -23,6 +23,8 @@
       :cljs (cljs.core/ICounted
              (-count [_] (if (undelivered? val) 0 1)))))
 
+(defn- latching-buffer [] (LatchingBuffer. NO-VAL))
+
 ;; A channel-like type that coordinates the supply of fresh values.
 ;; TODO: https://blog.klipse.tech/clojurescript/2016/04/26/deftype-explained.html
 (deftype Refreshable [out control m]
@@ -102,7 +104,7 @@
                             failsafe-timeout (* 1000 60)}
                        :as options}]
   {:pre [(fn? acquire) (int? interval) (seqable? backoffs) (fn? error-handler) (or (nil? failsafe-timeout) (pos-int? failsafe-timeout))]}
-  (let [out (async/chan (LatchingBuffer. NO-VAL))
+  (let [out (async/chan (latching-buffer))
         control (async/chan 1)
         refreshable (->Refreshable out control (atom {::version 0}))]
     ;; coordinate the out channel from value arriving on the in channel
@@ -141,7 +143,8 @@
             (async/close! out)))))
     refreshable))
 
-(def close! async/close!)
+(def close! impl/close!)
+(def closed? impl/closed?)
 
 #?(:clj
    (do (defmethod clojure.core/print-method Refreshable
